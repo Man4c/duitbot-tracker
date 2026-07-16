@@ -1,0 +1,157 @@
+# Render Blueprint — DuitBot Tracker
+# Deploy: hubungkan repo di Render → "New Blueprint" → pilih repo ini.
+# Auto-deploy dari branch `main`. Tiga proses terpisah + PostgreSQL managed.
+#
+# CATATAN PLAN: worker, cron job, dan preDeployCommand butuh paid plan Render.
+# Ganti nilai `plan:` sesuai kebutuhan sebelum deploy.
+
+databases:
+  - name: duitbot-db
+    plan: basic-256mb
+    databaseName: duitbot
+    user: duitbot
+
+# Env bersama untuk ketiga service (hindari duplikasi).
+# Nilai secret (sync: false) diisi manual di dashboard Render.
+envVarGroups:
+  - name: duitbot-env
+    envVars:
+      - key: APP_NAME
+        value: "DuitBot Tracker"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_LOCALE
+        value: id
+      - key: APP_FALLBACK_LOCALE
+        value: en
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: warning
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: TELEGRAM_BOT_USERNAME
+        value: duitbot_tracker_bot
+      # --- Secret: isi manual di dashboard ---
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+
+services:
+  # ---------- WEB ----------
+  - type: web
+    name: duitbot-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    # Release step: migrasi jalan sebelum instance baru menerima traffic.
+    preDeployCommand: "php artisan migrate --force"
+    dockerCommand: entrypoint web
+    envVars:
+      - fromGroup: duitbot-env
+      - key: DB_HOST
+        fromDatabase:
+          name: duitbot-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: duitbot-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: duitbot-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: duitbot-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: duitbot-db
+          property: password
+
+  # ---------- WORKER (queue) ----------
+  - type: worker
+    name: duitbot-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    branch: main
+    autoDeploy: true
+    dockerCommand: entrypoint worker
+    envVars:
+      - fromGroup: duitbot-env
+      - key: DB_HOST
+        fromDatabase:
+          name: duitbot-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: duitbot-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: duitbot-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: duitbot-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: duitbot-db
+          property: password
+
+  # ---------- CRON (scheduler) ----------
+  # Render memanggil command ini tiap menit; schedule:run menentukan job yang due.
+  - type: cron
+    name: duitbot-scheduler
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    branch: main
+    schedule: "* * * * *"
+    dockerCommand: entrypoint scheduler
+    envVars:
+      - fromGroup: duitbot-env
+      - key: DB_HOST
+        fromDatabase:
+          name: duitbot-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: duitbot-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: duitbot-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: duitbot-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: duitbot-db
+          property: password

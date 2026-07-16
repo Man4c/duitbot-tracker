@@ -1,0 +1,46 @@
+# Dependency & artefak yang di-build ulang di dalam image
+/node_modules
+/vendor
+/public/build
+/public/hot
+
+# Rahasia & environment lokal — jangan pernah masuk image
+.env
+.env.*
+!.env.example
+
+# Version control & tooling
+.git
+.github
+.gitignore
+.gitattributes
+
+# Test & dev
+/tests
+phpunit.xml
+.phpunit.result.cache
+pint.json
+phpstan.neon
+eslint.config.js
+.prettierrc*
+.editorconfig
+
+# Database lokal (dev)
+/database/database.sqlite
+
+# Storage runtime (dibuat ulang) & log
+/storage/logs/*
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Docs, graph, memori — tak perlu di runtime image
+/docs
+/graphify-out
+/.agents
