@@ -60,6 +60,38 @@ Catatan: `route:cache` **tidak** dijalankan (routes memakai closure); hanya `con
 
 Catatan build: file Wayfinder (`resources/js/actions|routes|wayfinder`) di-`.gitignore` sehingga di-generate saat build. Plugin Wayfinder memanggil `php artisan wayfinder:generate` saat `vite build`, jadi stage build Docker menyertakan PHP + composer + Node sekaligus (bukan stage Node murni).
 
+## Runbook: masa aktif database free habis / migrasi DB
+
+PostgreSQL free Render **punya masa aktif terbatas** (verifikasi tanggal di dashboard `duitbot-db`; Render mengirim email peringatan sebelum habis). Kode/config/Docker aman di GitHub — hanya **database** yang perlu diantisipasi. Dua jalur:
+
+### Jalur A — Pindah ke Neon (rekomendasi: gratis & permanen, tak kedaluwarsa)
+
+Neon (https://neon.tech) = PostgreSQL murni gratis-permanen. Cocok karena app sudah pakai `pgsql` & auth sendiri (Telegram OTP) — tak butuh fitur ekstra Supabase. (Alternatif: Supabase juga free, tapi free tier-nya **pause setelah ~7 hari idle** & bawa banyak fitur tak terpakai.)
+
+Langkah:
+1. Daftar Neon → **Create project** (region terdekat, mis. Singapore/US) → salin **connection string** (`postgresql://user:pass@ep-xxx.region.aws.neon.tech/dbname?sslmode=require`).
+2. Di Render, `DB_*` saat ini **di-inject otomatis dari service `duitbot-db`** via `fromDatabase` di `render.yaml` (lihat blok `envVars` service `duitbot-web`). Untuk pakai Neon, mekanisme itu harus **dilepas** dan `DB_*` diisi manual:
+   - **Cara termudah (tanpa ubah kode):** override di env group / service env. Hapus/timpa `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` dengan nilai dari Neon. `DB_CONNECTION=pgsql` tetap. Tambah `DB_SSLMODE=require` (Neon wajib SSL) bila belum ada.
+   - **Atau via IaC:** di `render.yaml`, hapus 5 blok `fromDatabase` (baris DB_HOST…DB_PASSWORD) & hapus service `duitbot-db`, lalu set `DB_*` sebagai secret `sync: false`; isi manual di dashboard.
+3. **Redeploy** web service. `entrypoint.sh` menjalankan `migrate --force` saat start → tabel dibuat otomatis di Neon (DB kosong). Tak perlu pindah data lama bila data test tak penting.
+4. Cek `/health` → `database: ok`. Kirim `/start` + transaksi via bot untuk verifikasi tulis DB.
+5. (Opsional) hapus service `duitbot-db` lama di Render setelah yakin Neon jalan.
+
+> Migrasi DATA lama (bila nanti penting): `pg_dump "<render-external-url>" | psql "<neon-url>"`. Untuk saat ini data test tak penting, jadi cukup migrasi struktur via `migrate` (langkah 3).
+
+### Jalur B — Re-provision database free Render (cadangan, harus diulang berkala)
+
+1. Render → **New → PostgreSQL** (free) → beri nama (mis. `duitbot-db-2`).
+2. Update referensi: di `render.yaml` ganti semua `fromDatabase: name: duitbot-db` → nama baru (atau timpa `DB_*` manual di dashboard).
+3. Redeploy → `migrate` saat start bikin tabel baru (kosong).
+4. Hapus DB lama yang kedaluwarsa.
+
+### Catatan
+
+- **Nol perubahan kode** di kedua jalur — app portable (`config/database.php` sudah punya `pgsql`). Yang berubah hanya env `DB_*`.
+- **Backup ringan** (bila data mulai penting): `pg_dump` berkala ke file lokal. Selama data belum kritis, tak perlu.
+- **Upgrade path**: bila app jadi serius, Render paid (~$7/bln web + ~$7 DB) hilangkan spin-down & expiry + bisa aktifkan worker/scheduler asli (cabang di `entrypoint.sh` sudah siap).
+
 ## Checklist rilis
 
 1. Jalankan migration dan pastikan `/health` merespons status `ready`.
