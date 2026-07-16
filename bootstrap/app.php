@@ -16,6 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Di belakang proxy Render (TLS diterminasi di proxy → request ke container jadi
+        // HTTP polos + header X-Forwarded-*). Percayai semua proxy agar Laravel membaca
+        // X-Forwarded-Proto=https → URL aset/redirect memakai https (bukan http → cegah
+        // Mixed Content yang memblokir JS/CSS). Aman: hanya proxy Render yang menjangkau container.
+        $middleware->trustProxies(at: '*');
+
         $middleware->statefulApi();
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 

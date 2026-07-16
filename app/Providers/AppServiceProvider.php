@@ -5,6 +5,7 @@ namespace App\Providers;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -33,6 +34,13 @@ class AppServiceProvider extends ServiceProvider
     {
         Date::use(CarbonImmutable::class);
         CarbonImmutable::setLocale('id');
+
+        // Jaring pengaman: paksa semua URL yang dihasilkan (aset Vite, font, redirect)
+        // memakai skema https di production. Melengkapi trustProxies — kalaupun header
+        // proxy tak terbaca, aset tetap https → tak ada Mixed Content di Render/HTTPS.
+        if (app()->isProduction()) {
+            URL::forceScheme('https');
+        }
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),
