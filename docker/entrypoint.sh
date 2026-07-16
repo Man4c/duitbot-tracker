@@ -14,6 +14,10 @@ fi
 
 case "$role" in
     web)
+        # Render menyuntikkan $PORT (mis. 10000) & mengarahkan health-check ke sana.
+        # Substitusi placeholder di nginx.conf agar nginx listen di port yang benar.
+        # Default 8080 untuk lokal/docker run tanpa $PORT.
+        sed -i "s/__PORT__/${PORT:-8080}/" /etc/nginx/nginx.conf
         # Free-tier: tak ada preDeployCommand berbayar, jadi migrasi dijalankan saat
         # start. Idempotent (migrasi yang sudah jalan di-skip). Free tier = 1 instance,
         # jadi tak ada risiko migrasi paralel.
