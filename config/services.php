@@ -8,6 +8,10 @@ return [
         'bot_username' => env('TELEGRAM_BOT_USERNAME'),
     ],
 
+    'cron' => [
+        'secret' => env('CRON_SECRET'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services
