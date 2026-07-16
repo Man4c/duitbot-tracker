@@ -31,6 +31,18 @@ jobs:
           composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
           npm install
 
+      - name: Prepare Laravel
+        run: |
+          cp .env.example .env
+          composer run-script post-autoload-dump
+          php artisan key:generate
+
+      # File Wayfinder (resources/js/actions|routes|wayfinder) di-.gitignore. eslint
+      # import/order perlu me-resolve import ke file itu; tanpa di-generate, urutan
+      # import salah-klasifikasi → lint gagal. Generate agar kondisi = lokal.
+      - name: Generate Wayfinder
+        run: php artisan wayfinder:generate --with-form
+
       - name: Check Pint
         run: composer lint:check
 
