@@ -28,6 +28,19 @@ class TelegramService
         $this->client()->post('/sendMessage', $payload)->throw();
     }
 
+    /**
+     * Daftarkan menu command bot ke Telegram (muncul sebagai popup di kolom chat).
+     * Idempotent: daftar lama ditimpa seluruhnya, bukan ditambah.
+     *
+     * @param  list<array{command:string, description:string}>  $commands
+     */
+    public function setMyCommands(array $commands): void
+    {
+        $this->client()->post('/setMyCommands', [
+            'commands' => $commands,
+        ])->throw();
+    }
+
     /** @return list<array<string, mixed>> */
     public function getUpdates(int $offset = 0, int $timeout = 20): array
     {

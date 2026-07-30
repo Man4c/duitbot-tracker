@@ -22,6 +22,10 @@ case "$role" in
         # start. Idempotent (migrasi yang sudah jalan di-skip). Free tier = 1 instance,
         # jadi tak ada risiko migrasi paralel.
         php artisan migrate --force
+        # Daftarkan menu command Telegram (popup di kolom chat). Idempotent.
+        # `|| true`: fitur sekunder — kalau gagal (mis. TELEGRAM_BOT_TOKEN belum diset),
+        # jangan jatuhkan boot web ($? akan fatal karena `set -e`).
+        php artisan telegram:set-commands || true
         # Direktori runtime nginx (pid) + jalankan nginx & php-fpm via supervisor.
         mkdir -p /run/nginx
         exec supervisord -c /etc/supervisor/conf.d/supervisord.conf
