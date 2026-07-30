@@ -12,6 +12,6 @@ class TransactionFactory extends Factory
 {
     public function definition(): array
     {
-        return ['user_id' => User::factory(), 'amount' => fake()->numberBetween(5000, 500000), 'category' => fake()->randomElement(TransactionCategory::values()), 'description' => fake()->words(3, true), 'source' => 'chat', 'occurred_at' => now()];
+        return ['user_id' => User::factory(), 'amount' => fake()->numberBetween(5000, 500000), 'quantity' => 1, 'category' => fake()->randomElement(TransactionCategory::values()), 'description' => fake()->words(3, true), 'source' => 'chat', 'occurred_at' => now()];
     }
 }

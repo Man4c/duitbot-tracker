@@ -112,7 +112,7 @@ class ProcessTelegramUpdate implements ShouldQueue
                 return;
             }
             $parsed = $parser->parse($argument);
-            $last->update(['amount' => $parsed['amount'], 'description' => $parsed['description'], 'category' => $parsed['category']]);
+            $last->update(['amount' => $parsed['amount'], 'quantity' => $parsed['quantity'], 'description' => $parsed['description'], 'category' => $parsed['category']]);
             $telegram->sendMessage($chatId, '✏️ Transaksi terakhir diubah: <b>'.e($last->description).'</b> — Rp'.number_format($last->amount, 0, ',', '.').' — '.$last->category->value);
             $budgets->checkAndNotify($user);
 
@@ -125,13 +125,14 @@ class ProcessTelegramUpdate implements ShouldQueue
         $transactions = DB::transaction(function () use ($user, $record, $parsedList) {
             $user->transactions()->where('telegram_update_id', $record->id)->delete();
 
-            return array_map(fn ($parsed) => $user->transactions()->create(['telegram_update_id' => $record->id, 'amount' => $parsed['amount'], 'description' => $parsed['description'], 'category' => $parsed['category'], 'source' => 'chat', 'occurred_at' => now()]), $parsedList);
+            return array_map(fn ($parsed) => $user->transactions()->create(['telegram_update_id' => $record->id, 'amount' => $parsed['amount'], 'quantity' => $parsed['quantity'], 'description' => $parsed['description'], 'category' => $parsed['category'], 'source' => 'chat', 'occurred_at' => now()]), $parsedList);
         });
 
         if (count($transactions) === 1) {
             $transaction = $transactions[0];
             $keyboard = $parsedList[0]['ambiguous'] ? $this->categoryKeyboard($transaction->id) : null;
-            $telegram->sendMessage($chatId, '✅ Tercatat: <b>'.e($transaction->description).'</b> — Rp'.number_format($transaction->amount, 0, ',', '.').' — '.$transaction->category->value.($keyboard ? "\nPilih kategori yang lebih tepat:" : ''), $keyboard);
+            $qtyNote = $transaction->quantity > 1 ? ' (×'.$transaction->quantity.')' : '';
+            $telegram->sendMessage($chatId, '✅ Tercatat: <b>'.e($transaction->description).'</b>'.$qtyNote.' — Rp'.number_format($transaction->amount, 0, ',', '.').' — '.$transaction->category->value.($keyboard ? "\nPilih kategori yang lebih tepat:" : ''), $keyboard);
         } else {
             $total = array_sum(array_map(fn ($t) => $t->amount, $transactions));
             $lines = array_map(fn ($t) => '• <b>'.e($t->description).'</b> — Rp'.number_format($t->amount, 0, ',', '.').' — '.$t->category->value, $transactions);

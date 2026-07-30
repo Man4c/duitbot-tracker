@@ -5,7 +5,13 @@ use App\Services\ParsingService;
 
 it('normalizes supported rupiah formats', function (string $text, int $amount) {
     expect((new ParsingService)->parse("Makan {$text}")['amount'])->toBe($amount);
-})->with([['25rb', 25000], ['25k', 25000], ['25.000', 25000], ['25000', 25000], ['25 ribu', 25000]]);
+})->with([['25rb', 25000], ['25k', 25000], ['25.000', 25000], ['25000', 25000], ['25 ribu', 25000], ['5jt', 5000000], ['5 juta', 5000000], ['10jt', 10000000]]);
+
+it('prefers a juta-suffixed number over a bare product number', function () {
+    // "iphone 15 pro 5jt": 5jt (5 juta) harus menang atas angka telanjang 15.
+    $parsed = (new ParsingService)->parse('iphone 15 pro 5jt');
+    expect($parsed['amount'])->toBe(5000000);
+});
 
 it('classifies all standard categories', function (string $text, TransactionCategory $category) {
     expect((new ParsingService)->classify($text))->toBe($category);
@@ -31,6 +37,33 @@ it('classifies common Indonesian everyday keywords', function (string $text, Tra
     ['bayar paylater', TransactionCategory::Debt], ['beli emas', TransactionCategory::Investment], ['beli tisu', TransactionCategory::Household],
     ['beli charger', TransactionCategory::Technology], ['main badminton', TransactionCategory::Sports],
 ]);
+
+it('picks the currency-suffixed number as the amount, not a bare quantity', function () {
+    // Bug: "beli makan 2 30k" sempat terbaca amount 2 (jumlah porsi), bukan 30rb.
+    $parsed = (new ParsingService)->parse('beli makan 2 30k');
+    expect($parsed['amount'])->toBe(30000);
+    expect($parsed['quantity'])->toBe(1);
+});
+
+it('picks the largest number when no suffix is present', function () {
+    $parsed = (new ParsingService)->parse('bakso 2 15000');
+    expect($parsed['amount'])->toBe(15000);
+});
+
+it('detects explicit quantity markers', function (string $text, int $quantity, int $amount) {
+    $parsed = (new ParsingService)->parse($text);
+    expect($parsed['quantity'])->toBe($quantity);
+    expect($parsed['amount'])->toBe($amount);
+})->with([
+    ['nasi goreng 2x 15rb', 2, 15000],
+    ['kopi x3 20rb', 3, 20000],
+    ['ayam 4 porsi 50rb', 4, 50000],
+    ['galon 2 pcs 40rb', 2, 40000],
+]);
+
+it('defaults quantity to 1 without an explicit marker', function () {
+    expect((new ParsingService)->parse('makan siang 25rb')['quantity'])->toBe(1);
+});
 
 it('rejects messages without an amount', function () {
     (new ParsingService)->parse('makan siang');

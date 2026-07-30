@@ -11,7 +11,7 @@ class ParsingService
      * Pecah satu pesan menjadi beberapa transaksi (dipisah baris baru, koma, atau titik koma).
      * Format Rupiah memakai titik sebagai pemisah ribuan, sehingga koma aman dijadikan pemisah.
      *
-     * @return list<array{amount:int, description:string, category:TransactionCategory, ambiguous:bool}>
+     * @return list<array{amount:int, quantity:int, description:string, category:TransactionCategory, ambiguous:bool}>
      */
     public function parseMany(string $text): array
     {
@@ -35,29 +35,72 @@ class ParsingService
         return $parsed;
     }
 
-    /** @return array{amount:int, description:string, category:TransactionCategory, ambiguous:bool} */
+    /** @return array{amount:int, quantity:int, description:string, category:TransactionCategory, ambiguous:bool} */
     public function parse(string $text): array
     {
         $text = trim($text);
-        if (! preg_match('/(?<!\w)(\d[\d.]*)\s*(rb|ribu|k)?\b/iu', $text, $match, PREG_OFFSET_CAPTURE)) {
+
+        // Kumpulkan semua kandidat nominal beserta posisinya agar bisa memilih yang paling tepat.
+        if (! preg_match_all('/(?<!\w)(\d[\d.]*)\s*(juta|jt|rb|ribu|k)?\b/iu', $text, $matches, PREG_OFFSET_CAPTURE)) {
             throw new InvalidArgumentException('Nominal tidak ditemukan. Contoh: Makan siang 25rb');
         }
 
-        $raw = $match[1][0];
-        $suffix = strtolower($match[2][0] ?? '');
-        $digits = (int) str_replace('.', '', $raw);
-        $amount = in_array($suffix, ['rb', 'ribu', 'k'], true) ? $digits * 1000 : $digits;
+        $quantity = $this->detectQuantity($text);
+
+        $candidates = [];
+        foreach ($matches[0] as $i => $full) {
+            $digits = (int) str_replace('.', '', $matches[1][$i][0]);
+            $multiplier = $this->multiplierFor(strtolower($matches[2][$i][0] ?? ''));
+            $candidates[] = [
+                'amount' => $digits * $multiplier,
+                'hasSuffix' => $multiplier > 1,
+                'full' => $full[0],
+                'offset' => $full[1],
+            ];
+        }
+
+        // Pilih nominal: utamakan angka bersuffix mata uang, jika seri/kosong ambil yang terbesar.
+        usort($candidates, function ($a, $b) {
+            return [$b['hasSuffix'], $b['amount']] <=> [$a['hasSuffix'], $a['amount']];
+        });
+        $chosen = $candidates[0];
+        $amount = $chosen['amount'];
         if ($amount < 1) {
             throw new InvalidArgumentException('Nominal harus lebih dari nol.');
         }
 
-        $fullMatch = $match[0][0];
-        $offset = $match[0][1];
-        $description = trim(substr_replace($text, '', $offset, strlen($fullMatch)), " \t\n\r\0\x0B-,:;");
+        $description = trim(substr_replace($text, '', $chosen['offset'], strlen($chosen['full'])), " \t\n\r\0\x0B-,:;");
         $description = $description !== '' ? $description : 'Pengeluaran';
         $category = $this->classify($description);
 
-        return ['amount' => $amount, 'description' => mb_substr($description, 0, 255), 'category' => $category, 'ambiguous' => $category === TransactionCategory::Other];
+        return ['amount' => $amount, 'quantity' => $quantity, 'description' => mb_substr($description, 0, 255), 'category' => $category, 'ambiguous' => $category === TransactionCategory::Other];
+    }
+
+    /** Kalikan sesuai satuan nominal: ribu (rb/ribu/k) → 1.000, juta (jt/juta) → 1.000.000. */
+    private function multiplierFor(string $suffix): int
+    {
+        return match ($suffix) {
+            'juta', 'jt' => 1_000_000,
+            'rb', 'ribu', 'k' => 1_000,
+            default => 1,
+        };
+    }
+
+    /**
+     * Deteksi jumlah/porsi hanya dari penanda eksplisit agar tidak salah menebak
+     * angka yang sebenarnya bagian dari nama barang (mis. "iphone 15").
+     * Dikenali: "2x", "x2", atau "2 <satuan>" (porsi/pcs/bungkus/gelas/cup/buah/biji/piring/porsi).
+     */
+    private function detectQuantity(string $text): int
+    {
+        if (preg_match('/(?<!\w)(\d+)\s*x(?!\w)/iu', $text, $m) || preg_match('/(?<!\w)x\s*(\d+)(?!\w)/iu', $text, $m)) {
+            return max(1, (int) $m[1]);
+        }
+        if (preg_match('/(?<!\w)(\d+)\s*(porsi|pcs|pc|bungkus|gelas|cup|buah|biji|piring|butir|lembar|pack)(?!\w)/iu', $text, $m)) {
+            return max(1, (int) $m[1]);
+        }
+
+        return 1;
     }
 
     public function classify(string $description): TransactionCategory

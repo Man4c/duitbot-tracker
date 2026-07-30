@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $amount
+ * @property int $quantity
  * @property TransactionCategory $category
  * @property string $description
  * @property string $source
@@ -22,11 +23,11 @@ class Transaction extends Model
     /** @use HasFactory<TransactionFactory> */
     use HasFactory;
 
-    protected $fillable = ['amount', 'category', 'description', 'source', 'occurred_at', 'telegram_update_id'];
+    protected $fillable = ['amount', 'quantity', 'category', 'description', 'source', 'occurred_at', 'telegram_update_id'];
 
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'category' => TransactionCategory::class, 'occurred_at' => 'datetime'];
+        return ['amount' => 'integer', 'quantity' => 'integer', 'category' => TransactionCategory::class, 'occurred_at' => 'datetime'];
     }
 
     /** @return BelongsTo<User, $this> */
