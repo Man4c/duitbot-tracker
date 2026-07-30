@@ -1707,11 +1707,15 @@ onBeforeUnmount(() => {
 
                             <div class="min-w-0 flex-1 sm:contents">
                                 <div class="min-w-0 flex-1">
-                                    <h3 class="flex items-center gap-1.5 font-medium">
-                                        <span class="truncate">{{ tx.description }}</span>
+                                    <h3
+                                        class="flex items-center gap-1.5 font-medium"
+                                    >
+                                        <span class="truncate">{{
+                                            tx.description
+                                        }}</span>
                                         <span
                                             v-if="tx.quantity > 1"
-                                            class="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-primary"
+                                            class="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary tabular-nums"
                                             :aria-label="`${tx.quantity} item`"
                                         >
                                             ×{{ tx.quantity }}

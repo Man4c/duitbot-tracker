@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 it('registers the bot command menu with Telegram', function () {
@@ -23,7 +24,7 @@ it('registers the bot command menu with Telegram', function () {
 
 it('does not leak the bot token when registration fails', function () {
     config(['services.telegram.bot_token' => 'very-secret-token']);
-    Http::fake(fn () => throw new Illuminate\Http\Client\ConnectionException(
+    Http::fake(fn () => throw new ConnectionException(
         'Request failed for https://api.telegram.org/botvery-secret-token/setMyCommands'
     ));
 
