@@ -16,6 +16,6 @@ class UpdateTransactionRequest extends FormRequest
     /** @return array<string, list<mixed>> */
     public function rules(): array
     {
-        return ['amount' => ['sometimes', 'integer', 'min:1', 'max:999999999999'], 'description' => ['sometimes', 'string', 'max:255'], 'category' => ['sometimes', Rule::enum(TransactionCategory::class)]];
+        return ['amount' => ['sometimes', 'integer', 'min:1', 'max:999999999999'], 'quantity' => ['sometimes', 'integer', 'min:1', 'max:100000'], 'description' => ['sometimes', 'string', 'max:255'], 'category' => ['sometimes', Rule::enum(TransactionCategory::class)]];
     }
 }

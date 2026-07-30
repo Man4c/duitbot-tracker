@@ -31,6 +31,19 @@ it('filters transactions and permits the owner to edit and delete', function () 
     $this->assertModelMissing($food);
 });
 
+it('allows the owner to edit quantity independently of amount', function () {
+    $user = User::factory()->create();
+    $tx = Transaction::factory()->for($user)->create(['amount' => 30000, 'quantity' => 1]);
+    Sanctum::actingAs($user);
+
+    $this->putJson("/api/transactions/{$tx->id}", ['quantity' => 3])
+        ->assertOk()
+        ->assertJsonPath('data.quantity', 3)
+        ->assertJsonPath('data.amount', 30000);
+
+    $this->putJson("/api/transactions/{$tx->id}", ['quantity' => 0])->assertStatus(422);
+});
+
 it('paginates the complete transaction history', function () {
     $user = User::factory()->create();
     Transaction::factory()->count(26)->for($user)->create();

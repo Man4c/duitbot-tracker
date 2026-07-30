@@ -63,6 +63,7 @@ const props = defineProps<{ categories: string[] }>();
 type Tx = {
     id: number;
     amount: number;
+    quantity: number;
     category: string;
     description: string;
     source: string;
@@ -138,9 +139,11 @@ const from = ref('');
 const to = ref('');
 const editing = ref<Tx | null>(null);
 const editAmount = ref('');
+const editQuantity = ref('');
 const editDescription = ref('');
 const editCategory = ref('');
 const editAmountError = ref('');
+const editQuantityError = ref('');
 const editDescriptionError = ref('');
 const budgetCategory = ref(props.categories[0] ?? '');
 const categorySelectValue = computed<string>({
@@ -523,9 +526,11 @@ function observeChartContainers() {
 function beginEdit(tx: Tx) {
     editing.value = tx;
     editAmount.value = String(tx.amount);
+    editQuantity.value = String(tx.quantity);
     editDescription.value = tx.description;
     editCategory.value = tx.category;
     editAmountError.value = '';
+    editQuantityError.value = '';
     editDescriptionError.value = '';
 }
 
@@ -533,6 +538,7 @@ function setEditDialog(open: boolean) {
     if (!open && !savingTransaction.value) {
         editing.value = null;
         editAmountError.value = '';
+        editQuantityError.value = '';
         editDescriptionError.value = '';
     }
 }
@@ -548,8 +554,15 @@ async function saveEdit() {
     editAmountError.value = /^[1-9]\d*$/.test(editAmount.value)
         ? ''
         : 'Masukkan nominal minimal Rp1.';
+    editQuantityError.value = /^[1-9]\d*$/.test(editQuantity.value)
+        ? ''
+        : 'Masukkan jumlah minimal 1.';
 
-    if (editDescriptionError.value || editAmountError.value) {
+    if (
+        editDescriptionError.value ||
+        editAmountError.value ||
+        editQuantityError.value
+    ) {
         return;
     }
 
@@ -560,6 +573,7 @@ async function saveEdit() {
             method: 'PUT',
             body: JSON.stringify({
                 amount: Number(editAmount.value),
+                quantity: Number(editQuantity.value),
                 description: editDescription.value.trim(),
                 category: editCategory.value,
             }),
@@ -1693,8 +1707,15 @@ onBeforeUnmount(() => {
 
                             <div class="min-w-0 flex-1 sm:contents">
                                 <div class="min-w-0 flex-1">
-                                    <h3 class="truncate font-medium">
-                                        {{ tx.description }}
+                                    <h3 class="flex items-center gap-1.5 font-medium">
+                                        <span class="truncate">{{ tx.description }}</span>
+                                        <span
+                                            v-if="tx.quantity > 1"
+                                            class="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-primary"
+                                            :aria-label="`${tx.quantity} item`"
+                                        >
+                                            ×{{ tx.quantity }}
+                                        </span>
                                     </h3>
                                     <p
                                         class="mt-0.5 text-sm text-muted-foreground"
@@ -2062,6 +2083,25 @@ onBeforeUnmount(() => {
                         id="edit-amount-error"
                         role="alert"
                         :message="editAmountError"
+                    />
+                </div>
+                <div class="space-y-2">
+                    <Label for="edit-quantity">Jumlah</Label>
+                    <Input
+                        id="edit-quantity"
+                        v-model="editQuantity"
+                        type="number"
+                        inputmode="numeric"
+                        min="1"
+                        aria-describedby="edit-quantity-error"
+                        :aria-invalid="Boolean(editQuantityError)"
+                        class="h-11"
+                        @update:model-value="editQuantityError = ''"
+                    />
+                    <InputError
+                        id="edit-quantity-error"
+                        role="alert"
+                        :message="editQuantityError"
                     />
                 </div>
                 <div class="space-y-2">
